@@ -31,7 +31,27 @@ def verificar(sugerencia):
     El motivo lo escribió el modelo de IA: es un dato para que lo lea una persona, no una
     instrucción para tu programa.
     """
-    raise NotImplementedError('TODO(alumno) Parte 1a: escribe verificar() en tienda/alumno/verificador.py')
+    problemas = []
+    valor = sugerencia.valor_propuesto
+
+    if sugerencia.campo == 'precio':
+        if valor <= 0:
+            problemas.append('el precio tiene que ser mayor que 0')
+        else:
+            actual = sugerencia.producto.precio
+            if actual > 0 and abs(valor - actual) > actual * VARIACION_MAXIMA_PRECIO:
+                problemas.append(f'el precio varía más de ±30 % respecto al actual ({actual})')
+    elif sugerencia.campo == 'stock':
+        if valor != valor.to_integral_value():
+            problemas.append('el stock tiene que ser un número entero')
+        if valor < 0:
+            problemas.append('el stock no puede ser negativo')
+        if valor > STOCK_MAXIMO:
+            problemas.append(f'el stock no puede pasar de {STOCK_MAXIMO}')
+    else:
+        problemas.append(f'campo desconocido: {sugerencia.campo}')
+
+    return problemas
 
 
 def validar_forma(item):
@@ -46,4 +66,26 @@ def validar_forma(item):
 
     Pista: Decimal('veinte') lanza InvalidOperation.
     """
-    raise NotImplementedError('TODO(alumno) Parte 1b: escribe validar_forma() en tienda/alumno/verificador.py')
+    if not isinstance(item, dict):
+        raise ValueError('le faltan claves: formato inválido')
+    faltan = CLAVES - set(item.keys())
+    if faltan:
+        raise ValueError(f'le faltan claves: {", ".join(sorted(faltan))}')
+
+    nombre = str(item['producto']).strip()
+    producto = Producto.objects.filter(nombre__iexact=nombre).first()
+    if producto is None:
+        raise ValueError(f'{item["producto"]} no existe en el catálogo')
+
+    if item['campo'] not in {'precio', 'stock'}:
+        raise ValueError(f'campo desconocido: {item["campo"]}')
+
+    try:
+        valor = Decimal(str(item['valor']))
+    except (InvalidOperation, TypeError, ValueError):
+        raise ValueError(f'{item["valor"]} no es un número') from None
+
+    if not valor.is_finite():
+        raise ValueError(f'{item["valor"]} no es un número')
+
+    return producto, valor
